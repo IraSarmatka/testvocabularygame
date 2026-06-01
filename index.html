@@ -412,33 +412,53 @@ let drillIndex = 0;
 let drillOrder = [];
 
 /* ── TTS ── */
+function getVoicesAsync() {
+  return new Promise(resolve => {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) { resolve(voices); return; }
+    window.speechSynthesis.addEventListener('voiceschanged', () => {
+      resolve(window.speechSynthesis.getVoices());
+    }, { once: true });
+    // Android fallback: if voiceschanged never fires, resolve after 500ms
+    setTimeout(() => resolve(window.speechSynthesis.getVoices()), 500);
+  });
+}
+
 function speak(lang) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(CARDS[current].word);
-  utt.lang = lang; utt.rate = 0.85;
-  const voices = window.speechSynthesis.getVoices();
-  const v = voices.find(v => v.lang === lang) || voices.find(v => v.lang.startsWith(lang.split('-')[0]));
-  if (v) utt.voice = v;
+  const word = CARDS[current].word;
   const id = lang === 'en-GB' ? 'btnUK' : 'btnUS';
   const btn = document.getElementById(id);
-  btn && btn.classList.add('playing');
-  utt.onend = utt.onerror = () => btn && btn.classList.remove('playing');
-  window.speechSynthesis.speak(utt);
+  getVoicesAsync().then(voices => {
+    const utt = new SpeechSynthesisUtterance(word);
+    utt.lang = lang; utt.rate = 0.85;
+    const v = voices.find(v => v.lang === lang) || voices.find(v => v.lang.startsWith(lang.split('-')[0]));
+    if (v) utt.voice = v;
+    btn && btn.classList.add('playing');
+    utt.onend = utt.onerror = () => btn && btn.classList.remove('playing');
+    window.speechSynthesis.speak(utt);
+  });
 }
 
 function speakDrill(lang) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(CARDS[drillOrder[drillIndex]].word);
-  utt.lang = lang; utt.rate = 0.85;
-  const voices = window.speechSynthesis.getVoices();
-  const v = voices.find(v => v.lang === lang) || voices.find(v => v.lang.startsWith(lang.split('-')[0]));
-  if (v) utt.voice = v;
-  window.speechSynthesis.speak(utt);
+  const word = CARDS[drillOrder[drillIndex]].word;
+  getVoicesAsync().then(voices => {
+    const utt = new SpeechSynthesisUtterance(word);
+    utt.lang = lang; utt.rate = 0.85;
+    const v = voices.find(v => v.lang === lang) || voices.find(v => v.lang.startsWith(lang.split('-')[0]));
+    if (v) utt.voice = v;
+    window.speechSynthesis.speak(utt);
+  });
 }
 
-window.speechSynthesis && (window.speechSynthesis.onvoiceschanged = () => {});
+// Preload voices on page load for Android
+if (window.speechSynthesis) {
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+}
 
 /* ── DOTS ── */
 function buildDots() {
